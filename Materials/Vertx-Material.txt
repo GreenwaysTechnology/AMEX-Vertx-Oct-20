@@ -924,4 +924,1233 @@ In vertx per cpu core 2 event loops.
 
 eg , if i have 12 cores - 24 event loop.
 
+&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+
+How to process events 
+
+-Verticle
+-Event loop Thread
+-Event handlers
+
+
+Event Handlers:
+...............
+
+Vertx Event Handlers can be in written in two ways
+
+1.Future && Promise Pattern : Functional style
+2.Reactive Pattern - RxJava2
+
+
+if you come from java script && node.js background,you know the concept called "Callback function" - callback function is other wise called as "listener function" or "handler function".
+
+Handler Function /Callback function/Listener function:
+.......................................................
+1.Handler functions are not called by developers directly like other functions.
+2.Handlers functions are called by a thread "Event Loop".
+3.Handler functions are available inside Event Queue as passive instruction.
+4.Once async operation(task-database connnection) is completed, os triggers event, along with event, data, and its   handler is pushed into event queue, event loop thread starts processing event by assinging a handler function.
+
+What is handler function/callback function/listener function for?
+
+ "To handle async success /failure result"
+     "The result of async opertion could be either success or failure".
+
+
+
+io.vertx.Future:
+
+-it is interface used to handle async success/failure results.
+
+io.vertx.core
+
+Future Interface 
+				AsyncResult       Handler
+				-------------------------
+					   |
+				         Future
+
+
+
 &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+
+How to process events 
+
+-Verticle
+-Event loop Thread
+
+-Event handlers
+
+
+
+Event Handlers:
+...............
+
+Vertx Event Handlers can be in written in two ways
+
+1.Future && Promise Pattern : Functional style
+2.Reactive Pattern - RxJava2
+
+
+if you come from java script && node.js background,you know the concept called "Callback function" - callback function is other wise called as "listener function" or "handler function".
+
+
+
+1.Handler functions are not called by developers directly like other functions.
+2.Handlers functions are called by a thread "Event Loop".
+3.Handler functions are available inside Event Queue as passive instruction.
+4.Once async operation(task-database connnection) is completed, os triggers event, along with event, data, and its   handler is pushed into event queue, event loop starts processing.
+
+What is handler function/callback function/listener function for?
+To handle async success /failure result.
+   The result of async opertion could be either success or failure
+
+
+io.vertx.Future:
+
+-it is interface used to handle async success/failure results.
+
+io.vertx.core
+
+Future Interface 
+				AsyncResult       Handler
+				-------------------------
+					   |
+				         Future
+
+
+
+Future interface is used to handle the result of async operation.
+
+
+Future is interface , encapsulate response(Success/failure), we need to create Object 
+for "Future" implementation
+
+ Future f = Future.future() // create FutureImpl object
+
+Two major api for response:
+
+
+1.complete()  and complete(T result) =>Success Response, encasulated inside this api
+
+2.fail(String failureMessage) and fail(Throwable cause) =>Failure response, encapsulate  inside this api.
+
+
+Handler apis for handling response;
+...................................
+
+1.succeeded() : empty response
+2.default Future<T> setHandler(Handler<AsyncResult<T>> handler)
+3.default Future<T> onComplete(Handler<AsyncResult<T>> handler)
+4.onSuccess
+5.onFailure
+
+AsyncResult interface apis
+
+ -result() - get the success result sent by Future
+ -cause()   -get the failure result sent by Future
+ -succeed() -test whether it was success or failure
+ -failed()  -test whether it was failure or success
+
+
+Future Object creation and encaspulating data
+
+1.Future future = Future.future()
+ future.complete(T value)
+ future.fail(T value)
+
+2.static factory api
+Future.succeedFuture(T value)
+Future.FailedFuture(T value)
+
+3.function as parameter pattern ; callback pattern
+
+
+package com.ibm.vertx.core.asyncwrappers;
+
+import io.vertx.core.AbstractVerticle;
+import io.vertx.core.AsyncResult;
+import io.vertx.core.Future;
+import io.vertx.core.Handler;
+import io.vertx.example.util.Runner;
+
+class FutureVerticle extends AbstractVerticle {
+
+  //create empty future; no response return
+  public Future<Void> getEmptyFuture() {
+    //create Future object
+    Future<Void> future = Future.future();
+    //empty response injection
+    future.complete();
+    return future;
+  }
+
+  //how to send success results : can be any type
+  public Future<String> getSuccessFuture() {
+    //create Future object
+    Future<String> future = Future.future();
+    //empty response injection
+    future.complete("Hello I am fututure result!!");
+    return future;
+  }
+
+  //how to send failure reponse;
+  public Future<String> getFailedFuture() {
+    //create Future object
+    Future<String> future = Future.future();
+    //empty response injection
+    future.fail("Some thing went wrong");
+    return future;
+  }
+
+  //how to send success or failure based on biz logic
+  public Future<String> validate(String userName, String password) {
+    //create Future object
+    Future<String> future = Future.future();
+
+    //biz logic
+    if (userName.equals("admin") && password.equals("admin")) {
+      future.complete("Login Success");
+    } else {
+      future.fail("Login Failed");
+    }
+
+    return future;
+  }
+
+  //facotry api
+  public Future<String> validateUsingFactory(String userName, String password) {
+    //biz logic
+    if (userName.equals("admin") && password.equals("admin")) {
+      return Future.succeededFuture("Login success");
+    } else {
+      return Future.failedFuture("Login Failed");
+    }
+  }
+
+  //function as parameter pattern
+  public void validateWithFunction(Handler<AsyncResult<String>> aHandler) {
+    //biz logic
+    String userName = "admin";
+    String password = "admin";
+    if (userName.equals("admin") && password.equals("admin")) {
+      aHandler.handle(Future.succeededFuture("login success"));
+    } else {
+      aHandler.handle(Future.failedFuture("Login Failed"));
+    }
+
+  }
+
+
+  @Override
+  public void start() throws Exception {
+    super.start();
+    //handle empty the response
+    if (getEmptyFuture().succeeded()) {
+      System.out.println("got empty response");
+    }
+    //set handler; using anonmous inner class
+    getSuccessFuture().setHandler(new Handler<AsyncResult<String>>() {
+      @Override
+      public void handle(AsyncResult<String> asyncResult) {
+        //value access
+        if (asyncResult.succeeded()) {
+          System.out.println(asyncResult.result());
+        } else {
+          System.out.println(asyncResult.cause());
+        }
+      }
+    });
+    //set handler; using lambda expression
+    getSuccessFuture().setHandler(asyncResult -> {
+      //value access
+      if (asyncResult.succeeded()) {
+        System.out.println(asyncResult.result());
+      } else {
+        System.out.println(asyncResult.cause());
+      }
+    });
+    //onComplete handler
+    getSuccessFuture().onComplete(asyncResult -> {
+      //value access
+      if (asyncResult.succeeded()) {
+        System.out.println(asyncResult.result());
+      } else {
+        System.out.println(asyncResult.cause());
+      }
+    });
+    //onSuccess will give direct result
+    getSuccessFuture().onSuccess(response -> {
+      System.out.println(response);
+    });
+    getSuccessFuture().onSuccess(System.out::println);
+
+    //handle failures
+    getFailedFuture().onComplete(asyncResult -> {
+      if (asyncResult.failed()) {
+        System.out.println(asyncResult.cause());
+      }
+    });
+    getFailedFuture().onFailure(System.out::println);
+
+    //login
+    validate("admin", "admin").onComplete(asyncResult -> {
+      if (asyncResult.succeeded()) {
+        System.out.println(asyncResult.result());
+      } else {
+        System.out.println(asyncResult.cause());
+      }
+    });
+    validate("foo", "foo")
+      .onSuccess(System.out::println)
+      .onFailure(System.out::println);
+
+    validateUsingFactory("admin", "admin")
+      .onSuccess(System.out::println)
+      .onFailure(System.out::println);
+
+    //funciton as parameter ; handler as a parameter
+    validateWithFunction(asyncResult -> {
+      if (asyncResult.succeeded()) {
+        System.out.println(asyncResult.result());
+      } else {
+        System.out.println(asyncResult.cause());
+      }
+    });
+
+  }
+}
+
+
+public class FutureMainVerticle extends AbstractVerticle {
+  public static void main(String[] args) {
+    Runner.runExample(FutureMainVerticle.class);
+  }
+
+  @Override
+  public void start() throws Exception {
+    super.start();
+    vertx.deployVerticle(new FutureVerticle());
+  }
+}
+
+
+Async Wrapper Object : Promise:
+...............................
+
+Promise is async abstraction largly promoted by javascript community.
+
+Dont Compare  javascript Promises with Vertx Promises , because both are different.
+
+Promise is "semantically meaningfull abstraction" for handling asyn results.
+
+Many times developers confuse with java Future and Vertx Future.
+
+Promises can't be processed directly with onComplete/setHandler/OnSuccecc/onFailure apis.
+
+Promises must be converted into Future before processing.
+
+
+package com.ibm.vertx.core.asyncwrappers;
+
+import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Future;
+import io.vertx.core.Promise;
+import io.vertx.example.util.Runner;
+
+class PromiseVerticle extends AbstractVerticle {
+
+  //how to send success results : can be any type
+  public Promise<String> getSuccessPromise() {
+    //create Future object
+    Promise<String> promise = Promise.promise();
+    //empty response injection
+    promise.complete("Hello I am Promise result!!");
+    return promise;
+  }
+
+  public Future<String> getSuccessPromise1() {
+    //create Future object
+    Promise<String> promise = Promise.promise();
+    //empty response injection
+    promise.complete("Hello I am Promise result!!");
+    return promise.future();
+  }
+
+  @Override
+  public void start() throws Exception {
+    super.start();
+    //convert promise into future
+    getSuccessPromise().future().onSuccess(System.out::println);
+    getSuccessPromise1().onSuccess(System.out::println);
+
+  }
+}
+
+
+public class PromiseMainVerticle extends AbstractVerticle {
+  public static void main(String[] args) {
+    Runner.runExample(PromiseMainVerticle.class);
+  }
+
+  @Override
+  public void start() throws Exception {
+    super.start();
+    vertx.deployVerticle(new PromiseVerticle());
+  }
+}
+&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+
+Legacy Application flow : object oriented and sync flow
+  
+dependent operations  , should happen one by one
+
+Object oriented seq work flow
+
+ 1.connect db - connect()
+ 2.Query results -queryResult()
+ 3.Formate results -formateResult()
+ 4.add results into http response stream - write()
+ 5.send/flush the results to clients - send()
+
+ Connection con=DriverManager.getConnection("connectionstring");
+ QueryResult queryres=con.queryResult()
+ List<T> results = formatResult(queryres)
+ response.write(results)
+ reponse.end();
+ .......................................................................................
+How the above task can be done in functional programming ; vertx?
+
+
+Functional sequential workflow:
+
+ Nested Callback : Callback chaining: functional style
+
+  Handler function is called as callback function
+
+"The out put of one callback is input to the another callback : nested callbacks
+
+   cb1
+     --cb2
+         -cb3
+            --cbN
+              --process the result.
+
+
+Use case :
+
+ getUser ----|if data is available
+			|	|
+			|
+			      	 call login method with  output of getUser
+                        |
+		     if not
+			 -error
+
+Note : output of one function will be input to another function.
+
+
+package com.ibm.vertx.core.asyncwrappers;
+
+import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Future;
+import io.vertx.core.Promise;
+import io.vertx.example.util.Runner;
+
+class CallbackVerticle extends AbstractVerticle {
+
+  //getUser--->login--->other---untill you get final
+
+  public Future<String> getUser() {
+    Promise promise = Promise.promise();
+    String userName = "admin";
+    if (userName != null) {
+      //output
+      promise.complete(userName);
+    } else {
+      promise.fail(new RuntimeException("User not found"));
+    }
+    return promise.future();
+  }
+
+  public Future<String> login(String userName) {
+    Promise promise = Promise.promise();
+    if (userName.equals("admin")) {
+      //output
+      promise.complete("login success");
+    } else {
+      promise.fail(new RuntimeException("login failed"));
+    }
+    return promise.future();
+  }
+
+  public Future<String> showPage(String status) {
+    Promise promise = Promise.promise();
+    if (status.equals("login success")) {
+      //output
+      promise.complete("Welcome to Admin page");
+    } else {
+      promise.fail(new RuntimeException("You are inside Guest page"));
+    }
+    return promise.future();
+  }
+
+  @Override
+  public void start() throws Exception {
+    super.start();
+    getUser().onComplete(userasync -> {
+      if (userasync.succeeded()) {
+        System.out.println("getUser is called");
+        login(userasync.result()).onComplete(loginasync -> {
+          if (loginasync.succeeded()) {
+            System.out.println("login is called");
+            showPage(loginasync.result()).onComplete(pageasync -> {
+              System.out.println("get page is called");
+              if (pageasync.succeeded()) {
+                System.out.println(pageasync.result());
+              } else {
+                System.out.println(pageasync.cause());
+              }
+            });
+          } else {
+            System.out.println(loginasync.cause());
+          }
+        });
+      } else {
+        System.out.println(userasync.cause());
+      }
+    });
+  }
+}
+
+public class CallbackChainingVerticle extends AbstractVerticle {
+  public static void main(String[] args) {
+    Runner.runExample(CallbackChainingVerticle.class);
+  }
+
+  @Override
+  public void start() throws Exception {
+    super.start();
+    vertx.deployVerticle(new CallbackVerticle());
+  }
+}
+&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+callback Hell:
+ The way we write nested callbacks.
+ doom of pyrmid
+
+    getUser().onComplete(userasync -> {
+      if (userasync.succeeded()) {
+        System.out.println("getUser is called");
+        login(userasync.result()).onComplete(loginasync -> {
+          if (loginasync.succeeded()) {
+            System.out.println("login is called");
+            showPage(loginasync.result()).onComplete(pageasync -> {
+              System.out.println("get page is called");
+              if (pageasync.succeeded()) {
+                System.out.println(pageasync.result());
+              } else {
+                System.out.println(pageasync.cause());
+              }
+            });
+          } else {
+            System.out.println(loginasync.cause());
+          }
+        });
+      } else {
+        System.out.println(userasync.cause());
+      }
+    });
+
+Look at the above code , ask your self
+
+1.is it easy to understand?
+2.is it easy to scale
+3.is it easy to maintain
+
+No!
+
+This is called callback hell; The callback hell is way of writing complex callbacks.
+
+
+
+can we escape from callback hell problem, how to write better callback based programming?
+
+Yes! 
+
+
+Solution to callback Hell:
+..........................
+compose method of Future & Promise 
+
+
+package com.ibm.vertx.core.asyncwrappers;
+
+import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Future;
+import io.vertx.core.Promise;
+import io.vertx.example.util.Runner;
+
+class CallbackHellVerticle extends AbstractVerticle {
+
+  public Future<String> getUser() {
+    Promise<String> promise = Promise.promise();
+    //biz
+    String userName = "admin";
+    if (userName != null) {
+      promise.complete(userName);
+    } else {
+      promise.fail("User not found");
+    }
+
+    return promise.future();
+  }
+
+  public Future<String> login(String userName) {
+    Promise<String> promise = Promise.promise();
+    //biz
+    if (userName.equals("admin")) {
+      promise.complete("login success");
+    } else {
+      promise.fail("login failed");
+    }
+    return promise.future();
+  }
+
+  public Future<String> page(String status) {
+    Promise<String> promise = Promise.promise();
+    //biz
+    if (status.equals("login success")) {
+      promise.complete("Admin Page");
+    } else {
+      promise.fail("Guest Page");
+    }
+    return promise.future();
+  }
+
+  public void callbackHellCode() {
+    getUser().onComplete(event -> {
+      if (event.succeeded()) {
+        System.out.println("getUser is called ");
+        login(event.result()).onComplete(loginevent -> {
+          if (loginevent.succeeded()) {
+            System.out.println("login is called");
+            page(loginevent.result()).onComplete(pageevent -> {
+              System.out.println("Page is called");
+              if (pageevent.succeeded()) {
+                System.out.println(pageevent.result());
+              } else {
+                System.out.println(pageevent.cause());
+              }
+            });
+          } else {
+            System.out.println(loginevent.cause());
+          }
+        });
+      } else {
+        System.out.println(event.cause());
+      }
+    });
+  }
+
+  //compose method of Future / Promise eleminate the complexity of callback nesting
+  public void compose() {
+    getUser()
+      .compose(userName -> {
+        return login(userName);
+      })
+      .compose(status -> {
+        return page(status);
+      })
+      .onSuccess(System.out::println)
+      .onFailure(System.out::println);
+
+    getUser()
+      .compose(userName -> login(userName))
+      .compose(status -> page(status))
+      .onSuccess(System.out::println)
+      .onFailure(System.out::println);
+    getUser()
+      .compose(this::login)
+      .compose(this::page)
+      .onSuccess(System.out::println)
+      .onFailure(System.out::println);
+
+  }
+
+
+  @Override
+  public void start() throws Exception {
+    super.start();
+    //callbackHellCode();
+    compose();
+  }
+}
+
+
+public class CallbackHellSoultion extends AbstractVerticle {
+  public static void main(String[] args) {
+    Runner.runExample(CallbackHellSoultion.class);
+  }
+
+  @Override
+  public void start() throws Exception {
+    super.start();
+    vertx.deployVerticle(new CallbackHellVerticle());
+  }
+}
+&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+
+Data Formate in vertx:
+
+1.Buffer
+2.JSON object
+
+Buffer
+JSON
+
+
+Buffer:
+
+1.Verticles running in vertx often need to process blocks of data.
+2.For instance , data from an incomming http request, data loaded from the disk or data generated as response to http request etc.
+3.A Buffer in vertx can hold binary data.
+4.Buffer is similar to byte array, except the buffer can expand its capacity dynamically  as you write data to it.
+
+
+package com.ibm.vertx.core.dataformat;
+
+import io.vertx.core.AbstractVerticle;
+import io.vertx.core.buffer.Buffer;
+import io.vertx.example.util.Runner;
+
+public class BufferMainVerticle extends AbstractVerticle {
+  public static void main(String[] args) {
+    Runner.runExample(BufferMainVerticle.class);
+  }
+
+  @Override
+  public void start() throws Exception {
+    super.start();
+    Buffer buffer = Buffer.buffer();
+    buffer.appendString("Hello");
+    buffer.appendString("Hai");
+    buffer.appendString("Welcome");
+    buffer.appendString("How are you");
+    buffer.appendString("this is binary data");
+    System.out.println(buffer.length());
+    System.out.println(buffer.toString());
+  }
+}
+/////////////////////////////////////////////////////////////////////////////////////////////
+
+JSON Object :Data Interchange format 
+
+Vertx provides a Json Objects
+
+1.JsonObject
+2.JsonArray
+
+
+Concept: fluent Pattern:
+
+fluent pattern is nothing but builder pattern/chaining pattern.
+
+Most of the vertx apis are based fluent.
+eg ; "hello".trim().toUppercase().trim()....
+
+
+package com.ibm.vertx.core.dataformat;
+
+import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Future;
+import io.vertx.core.Promise;
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
+import io.vertx.example.util.Runner;
+
+public class JSONVerticle extends AbstractVerticle {
+  public static void main(String[] args) {
+    Runner.runExample(JSONVerticle.class);
+  }
+
+  public void createSimpleJSON() {
+    JsonObject profile = new JsonObject();
+    //create json
+    profile.put("id", 1);
+    profile.put("name", "Subramanian");
+    profile.put("status", true);
+    //read data
+    System.out.println(profile.getInteger("id"));
+    System.out.println(profile.getString("name"));
+    System.out.println(profile.getBoolean("status"));
+    //print full
+    System.out.println(profile.encodePrettily());
+
+
+  }
+
+  public void createfluentJSON() {
+    JsonObject profile = new JsonObject()
+      .put("id", 1)
+      .put("name", "Subramanian")
+      .put("status", true);
+    //read data
+    System.out.println(profile.getInteger("id"));
+    System.out.println(profile.getString("name"));
+    System.out.println(profile.getBoolean("status"));
+    //print full
+    System.out.println(profile.encodePrettily());
+
+  }
+
+  public void createNestedJSON() {
+    JsonObject profile = new JsonObject()
+      .put("id", 1)
+      .put("name", "Subramanian")
+      .put("status", true)
+      .put("address", new JsonObject()
+        .put("city", "Coimbatore")
+        .put("state", "Tamil Nadue"));
+    //read data
+    System.out.println(profile.getInteger("id"));
+    System.out.println(profile.getString("name"));
+    System.out.println(profile.getBoolean("status"));
+    //print full
+    System.out.println(profile.encodePrettily());
+  }
+
+  public void createJSONArray() {
+    JsonObject profile = new JsonObject()
+      .put("id", 1)
+      .put("name", "Subramanian")
+      .put("status", true)
+      .put("address", new JsonObject()
+        .put("city", "Coimbatore")
+        .put("state", "Tamil Nadu"));
+
+    JsonArray profiles = new JsonArray()
+      .add(profile)
+      .add(new JsonObject()
+        .put("id", 2)
+        .put("name", "Ram")
+        .put("status", true)
+        .put("address", new JsonObject()
+          .put("city", "Chennai")
+          .put("state", "Tamil Nadu")));
+
+    //print full
+    System.out.println(profiles.encodePrettily());
+  }
+
+  public void mergeJson(JsonObject newConfig) {
+    JsonObject config = new JsonObject()
+      .put("http.port", 8080)
+      .mergeIn(newConfig);
+    System.out.println(config.encodePrettily());
+  }
+
+  //how to encapulate json / json array into promise/future
+  public Future<JsonArray> getList() {
+    Promise<JsonArray> profileList = Promise.promise();
+    JsonObject profile = new JsonObject()
+      .put("id", 1)
+      .put("name", "Subramanian")
+      .put("status", true)
+      .put("address", new JsonObject()
+        .put("city", "Coimbatore")
+        .put("state", "Tamil Nadu"));
+
+    JsonArray profiles = new JsonArray()
+      .add(profile)
+      .add(new JsonObject()
+        .put("id", 2)
+        .put("name", "Ram")
+        .put("status", true)
+        .put("address", new JsonObject()
+          .put("city", "Chennai")
+          .put("state", "Tamil Nadu")));
+
+    profileList.complete(profiles);
+
+    return profileList.future();
+  }
+
+  @Override
+  public void start() throws Exception {
+    super.start();
+//    createSimpleJSON();
+//    createfluentJSON();
+//    createNestedJSON();
+//    createJSONArray();
+    mergeJson(new JsonObject().put("http.host", "example.com").put("http.ssl", true));
+    getList().onSuccess(profiles -> {
+      System.out.println(profiles.encodePrettily());
+    });
+  }
+}
+&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+Non blocking apis:
+
+->Creating TCP clients and servers
+->Creating HTTP clients and servers
+->Creating DNS clients
+->Creating Datagram sockets
+->Setting and cancelling periodic and one-shot timers
+->Getting a reference to the event bus API
+->Getting a reference to the file system API
+
+-Timers
+-EventBus
+-Fs
+-HTTP.
+
+
+Timer api:
+.........
+package com.ibm.vertx.core.async.timers;
+
+import io.vertx.core.*;
+import io.vertx.core.json.JsonObject;
+import io.vertx.example.util.Runner;
+import java.util.Date;
+
+public class TimersVerticle extends AbstractVerticle {
+  public static void main(String[] args) {
+    Runner.runExample(TimersVerticle.class);
+  }
+
+  //delay
+  public Future<JsonObject> delay(long duration) {
+    Promise<JsonObject> promise = Promise.promise();
+    //trigger nonblocking api, wait for result,
+    vertx.setTimer(duration, asyncResult -> {
+      //do something once timer has fired
+      promise.complete(new JsonObject().put("message", "Hello i am delayed Message"));
+    });
+    return promise.future();
+  }
+
+  //heart beat
+  public void heartBeat(Handler<AsyncResult<String>> aHandler) {
+    long timerId = vertx.setPeriodic(1000, heartBeatValue -> {
+      //send something every 1000ms
+      aHandler.handle(Future.succeededFuture(new Date().toString()));
+    });
+    //stop the timer based on timerId;
+    vertx.setTimer(8000, stopvalue -> {
+      System.out.println("Stopping timer");
+      vertx.cancelTimer(timerId);
+    });
+  }
+
+  @Override
+  public void start() throws Exception {
+    super.start();
+    //blocking coding
+    System.out.println("start");
+    delay(5000).onComplete(asyncResult -> {
+      if (asyncResult.succeeded()) {
+        System.out.println(asyncResult.result().encodePrettily());
+      }
+    });
+    heartBeat(now -> {
+      System.out.println(now.result());
+    });
+
+    System.out.println("end");
+  }
+}
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+
+package com.ibm.vertx.core.fs;
+
+import io.vertx.core.AbstractVerticle;
+import io.vertx.core.file.FileSystem;
+import io.vertx.example.util.Runner;
+
+public class FileSystemVerticle extends AbstractVerticle {
+  public static void main(String[] args) {
+    Runner.runExample(FileSystemVerticle.class);
+  }
+
+  public void readFile() {
+    FileSystem fileSystem = vertx.fileSystem();
+    fileSystem.readFile("assets/info.txt", fileHandler -> {
+      if (fileHandler.succeeded()) {
+        System.out.println(fileHandler.result().toString());
+      } else {
+        System.out.println(fileHandler.cause().getCause());
+      }
+    });
+  }
+
+  @Override
+  public void start() throws Exception {
+    super.start();
+    System.out.println("start");
+    readFile();
+    System.out.println("end");
+  }
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+                                             Service Types
+                                                 |
+                                  ------------------------------------
+                                 Front End Service                Back End Service
+                                     |                                  |
+                                public Rest endpoint              Private Services.
+
+
+Public Rest endpoint services are communicated via Http protocal.
+  -Web --> WebClient
+
+Private Services are commmunicated via tcp ,message brokers like protocal.
+
+
+Event Bus:
+
+-Event Bus is nerve of vertx systems.
+
+-Vertx By default is distributed
+
+-Vertx carries distributed architecture by default
+
+-In Vertx Verticles can communicate via Centraized Broker which is built in called event Bus.
+-Event Bus uses tcp transport layer by default
+-EventBus can send and recive data in the form of json and buffer
+
+
+How verticle has been designed to adopt this architecture?
+
+Verticle follows a design pattern  "Actor-like Model" ---->Actor Model design pattern
+
+
+Event Bus:
+
+1.Event Bus can allow verticles sends data from one place to another place
+2.Event Bus forms a distributed peer-to-peer messaging system spannining multiple server nodes   and multiple browers.
+3.Event bus allows sending messages in three ways
+  1.pub/sub : one to many
+  2.point-to-point : one to one
+  3.request-reply(reponse) - one to one with acknowlegement.
+
+4.Event bus identifies clients via "addressing"
+   Messages are sent on the event bus to an "address"
+   Address schemes can be any naming convention, recommendation is dns model "in.news.covid"
+   
+5.Handlers
+   Since vertx is non blocking, messages are processed by handlers.
+   You have to register a handler at an address
+
+6.Type of Data
+   Data type of message could be any primitive-int,char,boolean,String, Buffer,JSON
+
+   Per Vertx Engine only One Event Bus-singleTon
+
+
+
+PUB-SUB:
+........
+package com.ibm.vertx.microservices.eventbus;
+
+import io.vertx.core.AbstractVerticle;
+import io.vertx.core.eventbus.EventBus;
+import io.vertx.core.eventbus.MessageConsumer;
+import io.vertx.example.util.Runner;
+
+class Address {
+  public static String PUB_SUB_ADDRESS = "news.in.covid";
+}
+
+//pub-sub ; one provider many consumer
+class NewsSevenVerticle extends AbstractVerticle {
+  public void consume() {
+    EventBus eventBus = vertx.eventBus();
+    MessageConsumer<String> messageConsumer = eventBus.consumer(Address.PUB_SUB_ADDRESS);
+    messageConsumer.handler(news -> {
+      System.out.println(this.getClass().getName() + news.body());
+    });
+  }
+
+  @Override
+  public void start() throws Exception {
+    super.start();
+    consume();
+  }
+}
+
+class BBCVerticle extends AbstractVerticle {
+  public void consume() {
+    EventBus eventBus = vertx.eventBus();
+    MessageConsumer<String> messageConsumer = eventBus.consumer(Address.PUB_SUB_ADDRESS);
+    messageConsumer.handler(news -> {
+      System.out.println(this.getClass().getName() + news.body());
+    });
+  }
+
+  @Override
+  public void start() throws Exception {
+    super.start();
+    consume();
+  }
+}
+
+class NDTVVerticle extends AbstractVerticle {
+  public void consume() {
+    EventBus eventBus = vertx.eventBus();
+    MessageConsumer<String> messageConsumer = eventBus.consumer(Address.PUB_SUB_ADDRESS);
+    messageConsumer.handler(news -> {
+      System.out.println(this.getClass().getName() + news.body());
+    });
+  }
+
+  @Override
+  public void start() throws Exception {
+    super.start();
+    consume();
+  }
+}
+
+
+//publisher publish news to all news tv channels
+class PublisherVerticle extends AbstractVerticle {
+
+  public void publish() {
+    //Get EventBus Object reference
+    EventBus eventBus = vertx.eventBus();
+    String message = "Last 24 Hrs covid count is 80000";
+    //send message with timer
+    vertx.setTimer(1000, ar -> {
+      eventBus.publish(Address.PUB_SUB_ADDRESS, message);
+    });
+  }
+
+  @Override
+  public void start() throws Exception {
+    super.start();
+    publish();
+  }
+}
+
+
+public class EventBusMainVerticle extends AbstractVerticle {
+  public static void main(String[] args) {
+    Runner.runExample(EventBusMainVerticle.class);
+  }
+
+  public void pubsub() {
+    vertx.deployVerticle(new PublisherVerticle());
+    vertx.deployVerticle(new NDTVVerticle());
+    vertx.deployVerticle(new BBCVerticle());
+    vertx.deployVerticle(new NewsSevenVerticle());
+  }
+
+  @Override
+  public void start() throws Exception {
+    super.start();
+    pubsub();
+
+  }
+}
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>.
+
+POINT - TO POINT:
+................
+//point to point
+class CenertalFinanceVerticle extends AbstractVerticle {
+
+  public void consume() {
+    EventBus eventBus = vertx.eventBus();
+    MessageConsumer<String> messageConsumer = eventBus.consumer(Address.POINT_TO_POINT);
+    //handle /process the message/news
+    messageConsumer.handler(news -> {
+      System.out.println("Request 1 -  : " + news.body());
+    });
+  }
+
+  public void consume2() {
+    EventBus eventBus = vertx.eventBus();
+    MessageConsumer<String> messageConsumer = eventBus.consumer(Address.POINT_TO_POINT);
+    //handle /process the message/news
+    messageConsumer.handler(news -> {
+      System.out.println("Request 2 -  : " + news.body());
+    });
+  }
+
+  @Override
+  public void start() throws Exception {
+    super.start();
+    consume();
+    consume2();
+  }
+}
+
+
+//point to point publisher
+class FinanceRequestVerticle extends AbstractVerticle {
+
+  public void requestFinance() {
+    System.out.println("Finance Request started....");
+    vertx.setTimer(5000, ar -> {
+      //point to point : send method
+      String message = "Dear Team, We request that we want 1 Billion Money for Covid";
+      //point to point ; send
+      vertx.eventBus().send(Address.POINT_TO_POINT, message);
+    });
+  }
+
+  @Override
+  public void start() throws Exception {
+    super.start();
+    requestFinance();
+  }
+}
+
+
+Request -Reply:
+
+class LabVerticle extends AbstractVerticle {
+  public void consume() {
+    EventBus eventBus = vertx.eventBus();
+    //pub-sub
+    MessageConsumer<String> messageConsumer = eventBus.consumer(Address.REQUEST_REPLY);
+    //handle /process the message/news
+    messageConsumer.handler(news -> {
+      System.out.println("Request -  : " + news.body());
+      //sending reply /ack
+      news.reply("Patient is Crictal, Need More attention");
+    });
+  }
+
+  @Override
+  public void start() throws Exception {
+    super.start();
+    consume();
+  }
+}
+
+class ReportVerticle extends AbstractVerticle {
+
+  public void sendReport() {
+    vertx.setTimer(5000, ar -> {
+      String message = "Report of Mr.x";
+      vertx.eventBus().request(Address.REQUEST_REPLY, message, asyncResult -> {
+        if (asyncResult.succeeded()) {
+          System.out.println(asyncResult.result().body());
+        } else {
+          System.out.println(asyncResult.cause());
+        }
+      });
+    });
+  }
+
+&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+
+
+
+
