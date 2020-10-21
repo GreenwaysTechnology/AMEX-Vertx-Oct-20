@@ -1,0 +1,26 @@
+TODOS:
+
+->Distributed vertx - Clustering
+   ->How to run multi node vertx using clusters
+->Scalablity
+   ->How to scale verticles - i want my webserver verticle should 10 copies.
+->Highavailability
+    -falut management
+->Load balancers
+
+->Service Proxy
+   How to expose api over tcp and event bus.
+
+-->Testing Junit / vertx.unit.
+
+-->Microservices
+  Falut-management-failures- cb,retry,bulkhead....
+  How to add resources , how to discover those resources...
+->Devops
+  monitoring,tracing.....
+->Deployment
+   -docker
+   -cloud
+   -openshipt
+   -kubers
+...........
